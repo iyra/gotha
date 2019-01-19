@@ -101,3 +101,9 @@ fn main() {
     println!("Hello, world!");
     println!("{:?}", parse("12 3 4".to_string(), Expr{car:None, cdr:None}));
 }
+
+/* Expr { car: Some(Value { valtype: 0, intvalue: Some(12), exprvalue: None }),
+       cdr: Some(Expr { car: Some(Value { valtype: 0, intvalue: Some(3), exprvalue: None }),
+                        cdr: Some(Expr {
+                            car: Some(Value { valtype: 0, intvalue: Some(4), exprvalue: None }),
+                            cdr: None }) }) } */
