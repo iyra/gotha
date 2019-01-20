@@ -1,8 +1,16 @@
 use std::process;
 
 #[derive(Debug)]
+enum Valtype {
+    Whatval,
+    Intval,
+    Exprval,
+}
+
+#[derive(Debug)]
 struct Value {
-    valtype: u32,
+    valtype: Valtype,
+    whatvalue: Option<String>,
     intvalue: Option<u32>,
     exprvalue: Option<Box<Expr>>,
 }
@@ -13,79 +21,99 @@ struct Expr {
     cdr: Option<Box<Expr>>,
 }
 
-fn parse(ins: String, m: Expr) -> Expr {
+fn parse(ins: String, m: Expr, in_expr: i32) -> (Expr, String) {
     println!("{:?}", m);
     match m.car {
         Some(x) => { // car is already starting to be filled or is done
-            if x.valtype == 0 {
-                /* integer */
                 match ins.chars().next() {
                     Some(nc) => {
-                        match nc.to_digit(10) {
-                            Some(p) => {
-                                match x.intvalue {
-                                    Some(v) => {
-                                        let new_val = v * 10 + p;
-                                        parse(ins.chars().skip(1).take(ins.chars().count()).collect(), Expr {
+                        if !nc.is_whitespace() {
+                            match x.whatvalue {
+                                Some(v) => {
+                                    if nc == ')' {
+                                        if in_expr > 0 {
+                                        return (Expr {
                                             car: Some(Value {
-                                                valtype: 0,
-                                                intvalue: Some(new_val),
+                                                valtype: Valtype::Whatval,
+                                                whatvalue: Some(v),
+                                                intvalue: None,
                                                 exprvalue: None,
                                             }),
-                                            cdr: m.cdr})
-                                    },
-                                    None => {
-                                        eprintln!("error: value type set to int but no int found in expr");
+                                            cdr: m.cdr}, ins)
+                                        } else {
+                                            eprintln!("error: unexpected )");
+                                            process::exit;
+                                        }
+                                    }
+                                    if nc != '(' {
+                                        /* stop people putting ( in the middle of a symbol... */
+                                        parse(ins.chars().skip(1).take(ins.chars().count()).collect(), Expr {
+                                            car: Some(Value {
+                                                valtype: Valtype::Whatval,
+                                                whatvalue: Some([v, nc.to_string()].join("")),
+                                                intvalue: None,
+                                                exprvalue: None,
+                                            }),
+                                            cdr: m.cdr}, in_expr)
+                                    } else {
+                                        eprintln!("error: unexpected (");
                                         process::exit(1);
                                     }
-                                }
-                            },
-                            None => { // started collecting an int but now we have something else...
-                                if nc.is_whitespace() {
-                                    let nextexpr = parse(ins.chars().skip(1).take(ins.chars().count()).collect(),
-                                                         Expr{car:None, cdr:None});
-                                    return Expr {
-                                        car: Some(x),
-                                        cdr: Some(Box::new(nextexpr))
-                                    };
-                                } else {
-                                    eprintln!("error: unexpected character");
+                                    
+                                },
+                                None => {
+                                    eprintln!("error: value type set to what but found nothing there");
                                     process::exit(1);
                                 }
-                                
                             }
+                        } else { // started collecting an int but now we have whitespace
+                            if in_expr > 0{
+                                    let (nextexpr, ni) = parse(ins.chars().skip(1).take(ins.chars().count()).collect(),
+                                                         Expr{car:None, cdr:None}, in_expr+1);
+                                    return (Expr {
+                                        car: Some(x),
+                                        cdr: Some(Box::new(nextexpr))
+                                    }, ni);  
+                                }
+                            else {return (Expr { car: Some(x), cdr: None }, ins) }
                         }
                     },
                     None => {
-                        eprintln!("error: unexpected end of input");
+                        if in_expr > 0 {
+                            eprintln!("error: unexpected end of input");
+                        }
                         //process::exit(1);
-                        return Expr {
+                        return (Expr {
                             car: Some(x),
                             cdr: m.cdr,
-                        };
+                        }, ins);
                     }
                 }
-            } else {
-                eprintln!("error: unrecognised value type");
-                process::exit(1);
-            }
         },
         None => { // car has not been filled yet
             match ins.chars().next() {
                 Some(nc) => {
-                    match nc.to_digit(10) {
-                        Some(p) =>
-                            parse(ins.chars().skip(1).take(ins.chars().count()).collect(), Expr {
-                                car: Some(Value {
-                                    valtype: 0,
-                                    intvalue: Some(p),
-                                    exprvalue: None,
-                                }),
-                                cdr: None }),
-                        None => {
-                            eprintln!("error: could not parse number");
-                            process::exit(1);
-                        }
+                    if nc == '(' {
+                        let (nextexpr, ni) = parse(ins.chars().skip(1).take(ins.chars().count()).collect(),
+                                                   Expr{car:None, cdr:None}, in_expr+1);
+                        //let (cdrexp, ni2) = parse(ni.chars().skip(1).take(ins.chars().count()).collect(), Expr{car:None, cdr:None}, in_expr);
+                        parse(ni.chars().skip(1).take(ins.chars().count()).collect(), Expr {
+                            car: Some(Value {
+                                valtype: Valtype::Exprval,
+                                whatvalue:None,
+                                intvalue: None,
+                                exprvalue: Some(Box::new(nextexpr)),
+                            }),
+                            cdr: None }, in_expr)
+                    } else {
+                        parse(ins.chars().skip(1).take(ins.chars().count()).collect(), Expr {
+                            car: Some(Value {
+                                valtype: Valtype::Whatval,
+                                whatvalue:Some(nc.to_string()),
+                                intvalue: None,
+                                exprvalue: None,
+                            }),
+                            cdr: None }, in_expr)
                     }
                 },
                 None => {
@@ -99,5 +127,5 @@ fn parse(ins: String, m: Expr) -> Expr {
 
 fn main() {
     println!("Hello, world!");
-    println!("{:?}", parse("12 3 4".to_string(), Expr{car:None, cdr:None}));
+    println!("{:?}", parse("(ab)".to_string(), Expr{car:None, cdr:None}, 0));
 }
