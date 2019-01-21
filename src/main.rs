@@ -30,6 +30,28 @@ fn parse(ins: String, m: Expr, in_expr: i32) -> (Expr, String) {
                         if !nc.is_whitespace() {
                             match x.whatvalue {
                                 Some(v) => {
+                                    if nc == ';' {
+                                        for (i, c) in ins.chars().enumerate() {
+                                            if c == '\n' {
+                                                return parse(ins.chars().skip(i).take(ins.chars().count()).collect(), Expr {
+                                            car: Some(Value {
+                                                valtype: Valtype::Whatval,
+                                                whatvalue: Some(v),
+                                                intvalue: None,
+                                                exprvalue: None,
+                                            }),
+                                            cdr: m.cdr}, in_expr)
+                                            }
+                                        }
+                                        return (Expr {
+                                            car: Some(Value {
+                                                valtype: Valtype::Whatval,
+                                                whatvalue: Some(v),
+                                                intvalue: None,
+                                                exprvalue: None,
+                                            }),
+                                            cdr: m.cdr}, "".to_string())
+                                    }
                                     if nc == ')' {
                                         if in_expr > 0 {
                                         return (Expr {
@@ -96,7 +118,6 @@ fn parse(ins: String, m: Expr, in_expr: i32) -> (Expr, String) {
                     if nc == '(' {
                         let (nextexpr, ni) = parse(ins.chars().skip(1).take(ins.chars().count()).collect(),
                                                    Expr{car:None, cdr:None}, in_expr+1);
-                        //let (cdrexp, ni2) = parse(ni.chars().skip(1).take(ins.chars().count()).collect(), Expr{car:None, cdr:None}, in_expr);
                         parse(ni.chars().skip(1).take(ins.chars().count()).collect(), Expr {
                             car: Some(Value {
                                 valtype: Valtype::Exprval,
@@ -105,6 +126,13 @@ fn parse(ins: String, m: Expr, in_expr: i32) -> (Expr, String) {
                                 exprvalue: Some(Box::new(nextexpr)),
                             }),
                             cdr: None }, in_expr)
+                    } else if nc == ';' {
+                        for (i, c) in ins.chars().enumerate() {
+                            if c == '\n' {
+                                return parse(ins.chars().skip(i).take(ins.chars().count()).collect(), Expr {car:None, cdr:None}, in_expr)
+                            }
+                        }
+                        return (Expr {car:None, cdr:None}, "".to_string()) /* just a comment */
                     } else {
                         parse(ins.chars().skip(1).take(ins.chars().count()).collect(), Expr {
                             car: Some(Value {
@@ -127,5 +155,5 @@ fn parse(ins: String, m: Expr, in_expr: i32) -> (Expr, String) {
 
 fn main() {
     println!("Hello, world!");
-    println!("{:?}", parse("(ab)".to_string(), Expr{car:None, cdr:None}, 0));
+    println!("{:?}", parse("a;hello\nb".to_string(), Expr{car:None, cdr:None}, 0));
 }
